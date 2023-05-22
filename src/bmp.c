@@ -69,3 +69,73 @@ void freeBmp(BMPImage *image) {
       free(image);
     } 
 }
+
+BMPImage * writeImage (BMPHeader * header, uint8_t * data){
+    BMPImage * bmp = malloc(sizeof(BMPImage));
+    if (!bmp){
+        return NULL;
+    }
+
+    bmp->header = malloc(sizeof(BMPHeader));
+    if (!bmmp->header) {
+        free(bmp)
+        return NULL;
+    }
+
+    memcpy(bmp->header, header, sizeof(BMPHeader));
+    bmp->data = data;
+
+    return bmp;
+}
+
+void writeToFileBmpImage (BMPImage * bmp, char * path){
+    FILE * file = fopen(path, "wb");
+    if (file == NULL){
+        fprintf (stderr, "Failed openning file\n");
+        return;
+    }
+
+    fwrite(bmp->header, bmp->header->offset, 1, file);
+
+    int width = bmp->header->width_px;
+    int height = bmp->header->height_px;
+    int padding = (4 - (width % 4)) % 4;
+
+    uint8_t * data = bmp->data;
+    
+    for(int y=height -1; y>=0 ; y--){
+        for (int x=0; x< width; x++){
+            uint8_t pixel = *(data + y*(width+padding) + x);
+            fwrite(&pixel, sizeof(uint8_t), 1, file);
+        }
+
+        uint8_t padding = 0x00;
+        for (int i=0; i<padding;i++){
+            fwrite(&padding_byte, sizeof(uint8_t), 1, file);
+        }
+    }
+
+    fclose(file);
+}
+
+void writeToStdoutBmpImage (BMPImage * bmp){
+    fwrite(bmp->header, bmp->header->offset, 1, stdout);
+
+    int width = bmp->header->width_px;
+    int height = bmp->header->height_px;
+    int padding = (4 - (width % 4)) % 4;
+
+    uint8_t * data = bmp->data;
+
+    for(int y=height -1; y>=0 ; y--){
+        for (int x=0; x< width; x++){
+            uint8_t pixel = *(data + y*(width+padding) + x);
+            fwrite(&pixel, sizeof(uint8_t), 1, stdout);
+        }
+
+        uint8_t padding = 0x00;
+        for (int i=0; i<padding;i++){
+            fwrite(&padding_byte, sizeof(uint8_t), 1, stdout);
+        }
+    }
+}
