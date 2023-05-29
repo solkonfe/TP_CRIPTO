@@ -77,8 +77,8 @@ BMPImage * writeImage (BMPHeader * header, uint8_t * data){
     }
 
     bmp->header = malloc(sizeof(BMPHeader));
-    if (!bmmp->header) {
-        free(bmp)
+    if (!bmp->header) {
+        free(bmp);
         return NULL;
     }
 
@@ -111,7 +111,7 @@ void writeToFileBmpImage (BMPImage * bmp, char * path){
 
         uint8_t padding = 0x00;
         for (int i=0; i<padding;i++){
-            fwrite(&padding_byte, sizeof(uint8_t), 1, file);
+            fwrite(&padding, sizeof(uint8_t), 1, file);
         }
     }
 
@@ -135,7 +135,7 @@ void writeToStdoutBmpImage (BMPImage * bmp){
 
         uint8_t padding = 0x00;
         for (int i=0; i<padding;i++){
-            fwrite(&padding_byte, sizeof(uint8_t), 1, stdout);
+            fwrite(&padding, sizeof(uint8_t), 1, stdout);
         }
     }
 }

@@ -36,7 +36,7 @@ uint8_t read_byte(uint8_t ** bytes, uint8_t bitsPerByte)
 {
     uint8_t byte;
     uint8_t * aux = *bytes;
-    uint8_t * limit = bytes + (CHAR_BIT / bitsPerByte);
+    uint8_t * limit = aux + (CHAR_BIT / bitsPerByte);
 
     for (byte = 0; aux < limit; aux++) {
         uint8_t auxBytes = *aux;
