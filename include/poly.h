@@ -4,8 +4,9 @@
 #include <stdint.h>
 
 #define MOD 251
-#define CONG(x) ( (x) < 0 ? (((x)*(-1)*(MOD-1))%MOD) : (x%MOD))
+#define TO_POSITIVE(x) ( (x) < 0 ? (((x)*(-1)*(MOD-1))%MOD) : (x%MOD))
 #define INV(x) ( inv[CONG(x)] )
+#define BLOCK_SIZE(x) ( 2*x - 2 )
 
 static const uint8_t inv[MOD] = {
     0, 1, 126, 84, 63, 201, 42, 36, 157, 28, 226, 137, 21, 58, 18, 67, 204,
@@ -33,8 +34,9 @@ typedef struct Poly {
 
 Poly * interPoly(int n, int* xs, int* ys);
 void freePoly(Poly * poly);
-uint8_t evPoly(Poly * poly, int x);
+uint8_t evaluatePolynomial(Poly * poly, int x);
 Poly * polyFromBytes(int n, uint8_t * bytes);
 Poly * polyFromCoef(int n, ...);
+uint8_t* getSecret(uint8_t ** shadows, int * xs, int length, int k);
 
 #endif // POLY_H
