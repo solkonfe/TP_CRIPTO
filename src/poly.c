@@ -66,29 +66,27 @@ void freePoly(Poly * poly) {
 
 Poly * interPoly(int n, int* x_values, int* y_values) {
    
-    Polynomial* poly = initPoly(n);
+    Poly * poly = initPoly(n);
 
-    int count = 0; // Number of coefficients already analysed
-    int yPrimes[n];  // y' cache - the y' are constructed recursively as interpolation progresses
+    int count = 0;
+    int yAux[n];
     while (count < n) {
-        int currentCoefficient = 0;
-
-        // Reduced Lagrange algorithm. In each iteration we ignore one extra point
-        int top = n-count;
-        for (int i = 0; i<top; i++) {
-            int y = !count ? y_values[i] : (yPrimes[i] - poly->coef[count-1]) * INV(x_values[i]); 
+        int current = 0;
+        int max = n-count;
+        for (int i = 0; i<max; i++) {
+            int y = !count ? y_values[i] : (yAux[i] - poly->coef[count-1]) * INV(x_values[i]); 
             y = TO_POSITIVE(y);
-            yPrimes[i] = y; 
+            yAux[i] = y; 
             int li = 1; 
-            for (int j=0; j<top; j++) {
+            for (int j=0; j<max; j++) {
                 li *= i == j ? 1 : TO_POSITIVE(-1*x_values[j]*INV(x_values[i]-x_values[j]));
                 li = TO_POSITIVE(li); 
             }
-            currentCoefficient += TO_POSITIVE(y*li);
+            current += TO_POSITIVE(y*li);
         }
-        poly->coef[count++] = (uint8_t)TO_POSITIVE(currentCoefficient); 
+        poly->coef[count++] = (uint8_t)TO_POSITIVE(current); 
     }
-
+    
     return poly; 
 }
 
@@ -182,7 +180,6 @@ void generateShadows(uint8_t * secret, int length, int k, int n){
 
         secret[i] = auxa0;
         secret[i+1] = auxa1;
-
 
         //save shadows 
         for (int j = 0; j < n; j++){
