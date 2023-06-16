@@ -19,6 +19,7 @@ void recover(struct* params) {
     memcpy(file->header, currentImageFile->header, size);
     file->pixels = calloc(file->header->image_size_bytes, 1);
 
+    getSecret(shadows, length, params->k, file);
 }
 
 //https://c-for-dummies.com/blog/?p=3246#:~:text=The%20directory%20holds%20all%20that,It%27s%20prototyped%20in%20the%20dirent.
@@ -66,13 +67,16 @@ uint8_t* getSecret(uint8_t** shadows, int length, int k, bmpFile* file; ) {
     uint8_t* secret = (uint8_t*) malloc(sizeof(uint8_t) * secretLength);
     int current = 0;
 
-    for (int i = 0; i < length; i += 2, current++) {
-        //par
-        int ys1[k];
-        //impar
-        int ys2[k];
+    uint8_t* x_values = malloc(k);
+    //par
+    uint8_t* ys1 = malloc(k);
 
+    //impar
+    uint8_t* ys2 = malloc(k);
+
+    for (int i = 0; i < length; i += 2, current++) {
         for (int j = 0; j < k; j++) {
+            x_values[i] = shadows[i]->shadowNumber;
             ys1[j] = shadows[j][current * 2];
             ys2[j] = shadows[j][current * 2 + 1];
         }
