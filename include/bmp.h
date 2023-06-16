@@ -32,6 +32,17 @@ typedef struct BMPImage {
     uint8_t * data;
 } BMPImage;
 
+typedef struct bmpFile{
+    BMPHeader  * header;
+    uint8_t * pixels;
+    int fd ;
+} bmpFile;
+
+
+
+//used to parse a bmp file.
+bmpFile *  openBmpFile(const char * path);
+
 BMPImage * readBmp (const char * path);
 
 void freeBmp(BMPImage *image);

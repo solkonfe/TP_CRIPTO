@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "*.vue": "vue",
+        "*.y": "yaml",
+        "secret.h": "c"
+    }
+}
