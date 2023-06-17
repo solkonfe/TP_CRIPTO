@@ -19,12 +19,18 @@ enum action{
 };
 
 struct params{
-    enum action;
+    enum action action;
     char * file;
     uint8_t k;
     char * directory;
     uint8_t n;
-}
+};
+
+typedef struct shadow{
+    uint8_t shadowNumber;
+    uint64_t pointNumber;
+    uint8_t * points;
+} shadow;
 
 static const uint8_t inv[MOD] = {
     0, 1, 126, 84, 63, 201, 42, 36, 157, 28, 226, 137, 21, 58, 18, 67, 204,

@@ -2,11 +2,12 @@
 #include "../include/poly.h"
 #include "../include/secret.h"
 #include "../include/utils.h"
+#include <stdio.h>
+#include <string.h>
 
 void printHelp(char* program);
-void checkValidK(char* k, struct* params);
+void checkValidK(char* k, struct params * params);
 struct params* initParams(int argc, char* argv[]);
-
 
 int main(int argc, char* argv[]) {
 
@@ -18,10 +19,10 @@ int main(int argc, char* argv[]) {
     struct params* params = initParams(argc, argv);
 
     if (params->action == DISTRIBUTE) {
-        distribute();
+        distribute(params);
     }
     else if (params->action == RECOVER) {
-        recover();
+        recover(params);
     }
     else {
         fprintf(stderr, "error, invalid action ");
@@ -57,7 +58,7 @@ struct params* initParams(int argc, char* argv[]) {
     return params;
 }
 
-void checkValidK(char* k, struct* params) {
+void checkValidK(char* k, struct params * params) {
     int aux = atoi(k);
     if (aux < 3 || aux > 8) {
         fprintf(stderr, "the k selected, is not valid");

@@ -1,15 +1,43 @@
 #include "../include/secret.h"
 
 bool validCoefficients(Poly* a, Poly* b);
+char** makePath(struct params * params);
+
+static shadow * fromImageToShadow(uint8_t k , bmpFile * imageFile){
+    shadow * shadow = malloc(sizeof (shadow));
+    shadow->shadowNumber = imageFile->header->reserved1;
+    shadow->pointNumber = imageFile->header->image_size_bytes / (k -1);
+    shadow->points = calloc(shadow->pointNumber,1);
+
+    int lsb4 = ( k == 3 || k == 4 ) ? 1 : 0;
+    int ImageBytesToShadowByte= ( lsb4 ) ? 2 : 4; // if lsb4 you need two uint8_t from image to generate a shadow uint8_t
+    int bitOperator = lsb4 ? 0x0f:0x03; // four or two least significant bits.
+    uint8_t shifter = lsb4 ? 4 : 2;
 
 
-void recover(struct* params) {
+    uint64_t currentShadowBlock = 0;
+    while(currentShadowBlock < shadow->pointNumber){
+        for(uint64_t i = (ImageBytesToShadowByte) * currentShadowBlock ; i < (ImageBytesToShadowByte* ( currentShadowBlock + 1)); i++){
+            shadow->points[currentShadowBlock] += imageFile->pixels[i]  & bitOperator;
+            if (i + 1 != ((ImageBytesToShadowByte* ( currentShadowBlock + 1))) )
+                shadow->points[currentShadowBlock] = shadow->points[currentShadowBlock] << shifter;
+        }
+        currentShadowBlock++;
+    }
+
+    return shadow;
+}
+
+void distribute(struct params *  params) {}
+
+void recover(struct params *  params) {
 
     char** fileNames = makePath(params);
-    uint8_t** shadows = initShadows(n, size); //malloc de shadows
+    shadow ** shadows = malloc(params->k * (sizeof(shadow *)));
     bmpFile* currentImageFile;
+
     for (int i = 0; i < params->k; i++) {
-        currentImageFile = openBmpFile(params->directory);
+        currentImageFile = openBmpFile(fileNames[i]);
         shadows[i] = fromImageToShadow(params->k, currentImageFile);
     }
 
@@ -19,21 +47,22 @@ void recover(struct* params) {
     memcpy(file->header, currentImageFile->header, size);
     file->pixels = calloc(file->header->image_size_bytes, 1);
 
-    getSecret(shadows, length, params->k, file);
+
+    getSecret(shadows, params->k, file, params);
 }
 
 //https://c-for-dummies.com/blog/?p=3246#:~:text=The%20directory%20holds%20all%20that,It%27s%20prototyped%20in%20the%20dirent.
-char** makePath(struct* params) {
-    DIR* directory = openDir();
+char** makePath(struct params * params) {
+    DIR* directory = opendir(params->directory);
     if (directory == NULL) {
-        return;
+        exit(1);
     }
 
     char** fileNames = malloc(params->n * sizeof(char*));
     struct dirent* entry;
     int file = 0;
     while ((entry = readdir(directory))) {
-        if (strcmpy(entry->d_name, ".") == 0 || strcmpy(entry->d_name, "..") == 0) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
             continue;
         }
         uint64_t directoryLength = strlen(params->directory);
@@ -52,7 +81,6 @@ char** makePath(struct* params) {
 
 uint8_t** initShadows(int n, int size) {
     uint8_t** shadows = (uint8_t**) malloc(sizeof(uint8_t*) * n);
-    //shadow[shadowNumber][pointNumber] = point
     for (int i = 0; i < n; i++) {
         shadows[i] = (uint8_t*) malloc(sizeof(uint8_t) * size);
     }
@@ -60,45 +88,42 @@ uint8_t** initShadows(int n, int size) {
 }
 
 
-uint8_t* getSecret(uint8_t** shadows, int length, int k, bmpFile* file; ) {
-    int secretLength = length * (k - 1);
-    uint8_t* imagePointer = file->pixels;
-    int blockSize = BLOCK_SIZE(k);
-    uint8_t* secret = (uint8_t*) malloc(sizeof(uint8_t) * secretLength);
-    int current = 0;
+void getSecret(shadow ** shadows, int k, bmpFile* file, struct params * params) {
+    uint8_t * image = file->pixels;
+    uint8_t current = 0;
 
-    uint8_t* x_values = malloc(k);
-    //par
+    uint8_t* xValues = malloc(k);
     uint8_t* ys1 = malloc(k);
-
-    //impar
     uint8_t* ys2 = malloc(k);
 
-    for (int i = 0; i < length; i += 2, current++) {
+    for (current = 0; current < (file->header->image_size_bytes); current += 2, image += (2*k) - 2) {
         for (int j = 0; j < k; j++) {
-            x_values[i] = shadows[i]->shadowNumber;
-            ys1[j] = shadows[j][current * 2];
-            ys2[j] = shadows[j][current * 2 + 1];
+            xValues[j] = shadows[j]->shadowNumber;
+            ys1[j] = shadows[j]->points[current];
+            ys2[j] = shadows[j]->points[current + 1];
         }
 
-        Poly* a = interPoly(k, x_values, ys1);
-        Poly* b = interPoly(k, x_values, ys2);
+        Poly* a = interPoly(k, xValues, ys1);
+        Poly* b = interPoly(k, xValues, ys2);
 
         if (!validCoefficients(a, b)) {
-            return NULL;
+            return;
         }
 
-        for (int t = 0; t < k; t++) {
-            secret[current * blockSize + t] = a->coef[t];
-            if (t >= 2) {
-                secret[current * blockSize + k + t - 2] = b->coef[t];
-            }
-        }
+        uint8_t  * coefficient = malloc( 2* k* sizeof(uint8_t));
+        memcpy(coefficient, a, k);
+        memcpy(coefficient + k , b, k);
 
         freePoly(a);
         freePoly(b);
     }
-    return secret;
+
+    int size = file->header->size - file->header->image_size_bytes;
+    int fd = open(params->file, O_WRONLY | O_CREAT);
+    lseek(fd, 0, SEEK_SET);
+    write(fd, file->header, size);
+    write(fd, file->pixels, file->header->image_size_bytes);
+    close(fd);
 }
 
 void generateShadows(uint8_t* secret, int length, int k, int n) {
@@ -135,7 +160,7 @@ void generateShadows(uint8_t* secret, int length, int k, int n) {
         freePoly(a);
         freePoly(b);
     }
-    return shadows;
+    return;
 }
 
 //-------------------------------------------------

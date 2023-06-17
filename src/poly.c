@@ -61,7 +61,7 @@ void freePoly(Poly * poly) {
     free(poly);
 }
 
-Poly * interPoly(int n, int* x_values, int* y_values) {
+Poly * interPoly(int n, uint8_t * x_values, uint8_t * y_values) {
    
     Poly * poly = initPoly(n);
 

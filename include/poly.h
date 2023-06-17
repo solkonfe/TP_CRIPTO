@@ -15,7 +15,7 @@ typedef struct Poly {
     uint8_t degree; 
 } Poly;
 
-Poly * interPoly(int n, int* xs, int* ys);
+Poly * interPoly(int n, uint8_t * x_values, uint8_t * y_values);
 void freePoly(Poly * poly);
 uint8_t evaluatePolynomial(Poly * poly, int x);
 Poly * polyFromBytes(int n, uint8_t * bytes);
