@@ -16,9 +16,11 @@
 #include "utils.h"
 #include "bmp.h"
 
-uint8_t ** initShadows (int n, int size);
+#define LSB4(x) (( x == 3 || x == 4 ) ? 1 : 0)
+#define LSB4_BYTES(x) (( x ) ? 2 : 4)
+
 void getSecret(shadow ** shadows, int k, bmpFile* file, struct params * params);
-void generateShadows(uint8_t * secret, int length, int k, int n);
+shadow ** generateShadows(bmpFile * file, int k, int n);
 void recover(struct params * params) ;
 void distribute(struct params * params);
 

@@ -1,7 +1,12 @@
 #include "../include/secret.h"
 
+
+uint8_t fourSignificant[] = {0xC0, 0x30, 0x0C, 0x03};
+uint8_t twoSignificant[] = {0xF0, 0x0F};
+
 bool validCoefficients(Poly* a, Poly* b);
 char** makePath(struct params * params);
+void writeFile(bmpFile * file, int fd);
 
 static shadow * fromImageToShadow(uint8_t k , bmpFile * imageFile){
     shadow * shadow = malloc(sizeof (shadow));
@@ -9,11 +14,10 @@ static shadow * fromImageToShadow(uint8_t k , bmpFile * imageFile){
     shadow->pointNumber = imageFile->header->image_size_bytes / (k -1);
     shadow->points = calloc(shadow->pointNumber,1);
 
-    int lsb4 = ( k == 3 || k == 4 ) ? 1 : 0;
-    int ImageBytesToShadowByte= ( lsb4 ) ? 2 : 4; // if lsb4 you need two uint8_t from image to generate a shadow uint8_t
-    int bitOperator = lsb4 ? 0x0f:0x03; // four or two least significant bits.
+    int lsb4 = LSB4(k);
+    int ImageBytesToShadowByte= LSB4_BYTES(lsb4);
+    int bitOperator = lsb4 ? 0x0f:0x03;
     uint8_t shifter = lsb4 ? 4 : 2;
-
 
     uint64_t currentShadowBlock = 0;
     while(currentShadowBlock < shadow->pointNumber){
@@ -28,7 +32,55 @@ static shadow * fromImageToShadow(uint8_t k , bmpFile * imageFile){
     return shadow;
 }
 
-void distribute(struct params *  params) {}
+static void insertBits(uint8_t  * image, uint8_t  * shadow, uint8_t  k){
+    int lsb4 = LSB4(k);
+    int bytes = LSB4_BYTES(lsb4);
+
+    uint8_t  lsb4Shifter[] = {4, 0};
+    uint8_t  lsb2Shifter[] = {6,4,2, 0};
+    int current = 0 ;
+
+    uint8_t  bits[bytes];
+
+    for(int i = 0; i < bytes ; i++){
+        bits[i] = lsb4 ? *shadow & twoSignificant[i] : *shadow & fourSignificant[i] ;
+        bits[i] = lsb4 ? bits[i] >> lsb4Shifter[current] : bits[i] >>lsb2Shifter[current];
+        current++;
+    }
+
+    int and = lsb4 ? 0xF0 : 0xFC;
+    for (int i = 0 ; i < bytes ; i++)
+        image[i] = (image[i] & and) + bits[i];
+
+}
+
+void hideShadow(uint8_t  k , bmpFile * file, shadow * hidingShadow){
+    file->header->reserved1 = hidingShadow->shadowNumber;
+    uint8_t * image = file->pixels;
+    uint8_t * shadowPointer = hidingShadow->points;
+    for(uint32_t  i = 0; i < hidingShadow->pointNumber; i++ ){
+            insertBits(image, shadowPointer, k);
+            shadowPointer += 1 ;
+            image += (k == 3 || k == 4) ? 2 : 4;
+    }
+}
+
+void hideSecret(int n, int k, char** fileNames, shadow ** shadows){
+    for (int i = 0 ; i < n ; i ++){
+        bmpFile  * currentImageFile = openBmpFile(fileNames[i]);
+        shadow * currentShadow = shadows[i];
+        hideShadow(k,currentImageFile, currentShadow);
+
+        writeFile(currentImageFile, currentImageFile->fd);
+    }
+}
+
+void distribute(struct params *  params) {
+    bmpFile* file = openBmpFile(params->file);
+    char ** fileNames = makePath(params);
+    shadow ** shadows = generateShadows(file, params->k, params->n);
+    hideSecret(params->n, params->k, fileNames, shadows);
+}
 
 void recover(struct params *  params) {
 
@@ -79,14 +131,13 @@ char** makePath(struct params * params) {
     return fileNames;
 }
 
-uint8_t** initShadows(int n, int size) {
-    uint8_t** shadows = (uint8_t**) malloc(sizeof(uint8_t*) * n);
-    for (int i = 0; i < n; i++) {
-        shadows[i] = (uint8_t*) malloc(sizeof(uint8_t) * size);
-    }
-    return shadows;
+void writeFile(bmpFile * file, int fd){
+    int size = file->header->size - file->header->image_size_bytes;
+    lseek(fd, 0, SEEK_SET);
+    write(fd, file->header, size);
+    write(fd, file->pixels, file->header->image_size_bytes);
+    close(fd);
 }
-
 
 void getSecret(shadow ** shadows, int k, bmpFile* file, struct params * params) {
     uint8_t * image = file->pixels;
@@ -118,49 +169,43 @@ void getSecret(shadow ** shadows, int k, bmpFile* file, struct params * params) 
         freePoly(b);
     }
 
-    int size = file->header->size - file->header->image_size_bytes;
     int fd = open(params->file, O_WRONLY | O_CREAT);
-    lseek(fd, 0, SEEK_SET);
-    write(fd, file->header, size);
-    write(fd, file->pixels, file->header->image_size_bytes);
-    close(fd);
+    writeFile(file, fd);
 }
 
-void generateShadows(uint8_t* secret, int length, int k, int n) {
-    int blockSize = BLOCK_SIZE(k);
-    int size = length / (k - 1);
-    uint8_t** shadows = initShadows(n, size);
+shadow ** generateShadows(bmpFile * file, int k, int n) {
+    uint32_t shadowPoints = (file->header->image_size_bytes) / (k - 1);
+    shadow ** shadows = malloc(n * (sizeof(shadow *)));
+    for (int i=0; i< n; i++){
+        shadows[i]->shadowNumber = i+1;
+        shadows[i]->pointNumber = shadowPoints;
+        shadows[i]->points = malloc(shadowPoints * sizeof (uint8_t));
+    }
+    uint8_t * pixels = file->pixels;
+    uint32_t current = 0;
+    uint8_t* ys1 = malloc(k * sizeof(uint8_t));
+    uint8_t* ys2 = malloc(k * sizeof(uint8_t));
 
-    //divide secret
-    int shadowPoints = 0;
-    for (int i = 0; i < length; i += size, shadowPoints += 2) {
-        int auxa0 = secret[i];
-        int auxa1 = secret[i + 1];
-
-        secret[i] = TO_POSITIVE(secret[i]) ? secret[i] : 1;
-        secret[i + 1] = TO_POSITIVE(secret[i + 1]) ? secret[i + 1] : 1;
-
-        Poly* a = polyFromBytes(k, &secret[i]);
-        Poly* b = polyFromBytes(k, &secret[i + k - 2]);
-
+    for (current= 0; current < shadowPoints; current += 2) {
+        memcpy(ys1, pixels, k);
+        memcpy(ys2 + 2, pixels + k, k-2);
         uint8_t random = (rand() % (MOD - 2)) + 1;
 
-        b->coef[0] = TO_POSITIVE(-(TO_POSITIVE(random) * secret[i]));
-        b->coef[1] = TO_POSITIVE(-(TO_POSITIVE(random) * secret[i + 1]));
+        int auxa0 = TO_POSITIVE(ys1[0]) == 0 ? 1: ys1[0];
+        int auxa1 = TO_POSITIVE(ys1[1]) == 0 ? 1: ys1[1];
 
-        secret[i] = auxa0;
-        secret[i + 1] = auxa1;
+        ys2[0] = TO_POSITIVE(-(TO_POSITIVE(random) * auxa0));
+        ys2[1] = TO_POSITIVE(-(TO_POSITIVE(random) * auxa1));
 
         //save shadows 
         for (int j = 0; j < n; j++) {
-            shadows[j][shadowPoints] = evaluatePolynomial(a, j + 1);
-            shadows[j][shadowPoints + 1] = evaluatePolynomial(b, j + 1);
+            shadows[j]->points[current] = evaluatePoly(k, ys1, shadows[j]->shadowNumber);
+            shadows[j]->points[current + 1] = evaluatePoly(k, ys2, shadows[j]->shadowNumber);
         }
 
-        freePoly(a);
-        freePoly(b);
+        pixels += (2*k) - 2;
     }
-    return;
+    return shadows;
 }
 
 //-------------------------------------------------

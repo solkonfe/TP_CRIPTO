@@ -11,44 +11,14 @@ Poly * initPoly(int n){
     return poly;
 }
 
-Poly * polyFromCoef(int n, ...){
-    if (n <= 0)
-        return NULL; 
-    
-    va_list args;
-    va_start(args, n);
-    
-    Poly* poly = initPoly(n);
-
-    for (int i = 0; i < n; i++) {
-        int arg = va_arg(args, int); 
-        uint8_t coeff = (uint8_t)(TO_POSITIVE(arg));
-        poly->coef[i] = coeff;
-    }
-    
-    va_end(args);
-
-    return poly;
-}
-
-Poly * polyFromBytes(int n, uint8_t * bytes) {
-
-    Poly * poly = initPoly(n);
-
-    for (int i=0; i<n; i++) 
-        poly->coef[i] = TO_POSITIVE(bytes[i]); 
-    
-    return poly; 
-}
-
-uint8_t evaluatePolynomial(Poly * poly, int x) {
+uint8_t evaluatePoly(int k, uint8_t * coef, int x) {
     uint32_t result = 0;
     uint32_t power = 1;
     
     uint8_t x2 = TO_POSITIVE(x); 
 
-    for (int i = 0; i <= poly->degree; i++) {
-        result += (uint32_t)poly->coef[i] * power;
+    for (int i = 0; i <= k; i++) {
+        result += (uint32_t)coef[i] * power;
         power = (power * x2) % MOD;
         result = result % MOD; 
     }

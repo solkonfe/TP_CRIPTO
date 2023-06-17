@@ -38,19 +38,7 @@ typedef struct bmpFile{
     int fd ;
 } bmpFile;
 
-
-
 //used to parse a bmp file.
 bmpFile *  openBmpFile(const char * path);
-
-BMPImage * readBmp (const char * path);
-
-void freeBmp(BMPImage *image);
-
-void writeToFileBmpImage (BMPImage * bmp, char * path);
-
-void writeToStdoutBmpImage (BMPImage * bmp);
-
-BMPImage * writeImage (BMPHeader * header, uint8_t * data);
 
 #endif
